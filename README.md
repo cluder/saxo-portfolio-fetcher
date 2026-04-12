@@ -1,14 +1,14 @@
 # Saxo Portfolio Fetcher
 
-This is a Python application that fetches your portfolio, account balances, and open orders from the Saxo Bank API via an OAuth 2.0 Authorization Code flow. It cleans up the raw response and outputs a highly minified JSON payload intended to easily fit within the context windows of Large Language Models (LLMs) for AI-driven portfolio analysis.
+This is a Python application that fetches your portfolio, account balances, and open orders from the Saxo Bank API via an OAuth 2.0 Authorization Code flow. It cleans up the raw response and outputs a minified JSON payload intended for further processing, for example for AI-driven portfolio analysis.
 
 ## Features
 - **OAuth 2.0 Flow**: Automatically opens your browser and handles the authentication process securely locally.
 - **Auto Refresh**: Token is saved and refreshed automatically for subsequent fetches.
-- **Multicurrency**: Extracts data separating CHF, USD, etc.
+- **Multicurrency**: Extracts data separating different sub-accounts (CHF, USD, etc.
 - **LLM Optimized**: Strips all unnecessary markup from the Saxo OpenAPI and delivers a concise JSON outline containing `Accounts`, `Portfolio` positions, and `Orders`.
 - **Archiving**: All existing local data files are moved into the `archive` directory upon successfully fetching new data.
-- **Debug Mode**: The `--debug` flag allows keeping raw bank data JSON for deeper inspection if required.
+- **Debug Mode**: The `--debug` flag allows keeping raw bank data JSON for deeper inspection of the original json, if required.
 
 ## Prerequisites
 - Python 3.x

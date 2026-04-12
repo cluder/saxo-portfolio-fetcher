@@ -157,7 +157,7 @@ def get_access_token():
 
 def extract_data(raw_data):
     data = {
-        "_Context": "Note: For cash-based trading decisions, strictly utilize 'CashAvailableForTrading'. 'MarginAvailableForTrading' includes the collateral value of held securities; utilizing it involves borrowing broker funds and will incur overnight interest charges.",
+        "_Documentation": "Note: For cash-based trading decisions, strictly utilize 'CashAvailableForTrading'. 'ProjectedCashAfterOrdersExecuted' reflects your remaining cash assuming all current open buy orders are filled. 'MarginAvailableForTrading' includes the collateral value of held securities; utilizing it involves borrowing broker funds and will incur overnight interest charges.",
         "Accounts": {},
         "Portfolio": [],
         "Orders": []
@@ -180,7 +180,9 @@ def extract_data(raw_data):
                     "CashBalance": bal.get("CashBalance"),
                     "CashAvailableForTrading": bal.get("CashAvailableForTrading"),
                     "MarginAvailableForTrading": bal.get("MarginAvailableForTrading"),
-                    "UnrealizedProfitLoss": bal.get("UnrealizedPositionsValueExcludingCostToClosePositions") or bal.get("UnrealizedPositionsValue") or 0.0
+                    "UnrealizedProfitLoss": bal.get("UnrealizedPositionsValueExcludingCostToClosePositions") or bal.get("UnrealizedPositionsValue") or 0.0,
+                    "OpenOrdersValue": 0.0,
+                    "ProjectedCashAfterOrdersExecuted": 0.0
                 }
         
     if "portfolio" in raw_data and "Data" in raw_data["portfolio"]:
@@ -206,18 +208,31 @@ def extract_data(raw_data):
         for ord in raw_data["orders"]["Data"]:
             fmt = ord.get("DisplayAndFormat", {})
             dur = ord.get("Duration", {})
+            
+            acc_id = ord.get("AccountId")
+            action = ord.get("BuySell")
+            amount = ord.get("Amount", 0)
+            price = ord.get("Price", 0)
+            
             data["Orders"].append({
-                "AccountId": ord.get("AccountId"),
+                "AccountId": acc_id,
                 "Name": fmt.get("Description"),
                 "Symbol": fmt.get("Symbol"),
                 "Type": ord.get("OpenOrderType"),
                 "DurationType": dur.get("DurationType"),
                 "ExpirationDate": dur.get("ExpirationDateTime") or dur.get("ExpirationDate"),
-                "Action": ord.get("BuySell"),
-                "Amount": ord.get("Amount"),
-                "TargetPrice": ord.get("Price"),
+                "Action": action,
+                "Amount": amount,
+                "TargetPrice": price,
                 "DistanceToMarket": ord.get("DistanceToMarket")
             })
+            
+            if action == "Buy" and acc_id in data["Accounts"]:
+                data["Accounts"][acc_id]["OpenOrdersValue"] += (amount * price)
+                
+    for acc_id, acc_info in data["Accounts"].items():
+        if acc_info["CashAvailableForTrading"] is not None:
+            acc_info["ProjectedCashAfterOrdersExecuted"] = acc_info["CashAvailableForTrading"] - acc_info["OpenOrdersValue"]
             
     return data
 
