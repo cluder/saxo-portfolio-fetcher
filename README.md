@@ -1,23 +1,20 @@
 # Saxo Portfolio Fetcher
 
-This is a Python application that fetches your portfolio, account balances, and open orders from the Saxo Bank API via an OAuth 2.0 Authorization Code flow. It cleans up the raw response and outputs a minified JSON payload intended for further processing, for example for AI-driven portfolio analysis.
+A Python utility that securely fetches your portfolio, account balances, and open orders from the Saxo Bank API. It outputs a minimalistic JSON file that is optimized to be used as context for LLMs (like ChatGPT, Gemini, or Claude) for portfolio analysis.
 
 ## Features
-- **OAuth 2.0 Flow**: Automatically opens your browser and handles the authentication process securely locally.
-- **Auto Refresh**: Token is saved and refreshed automatically for subsequent fetches.
-- **Multicurrency**: Extracts data separating different sub-accounts (CHF, USD, etc.
-- **LLM Optimized**: Strips all unnecessary markup from the Saxo OpenAPI and delivers a concise JSON outline containing `Accounts`, `Portfolio` positions, and `Orders`.
-- **Archiving**: All existing local data files are moved into the `archive` directory upon successfully fetching new data.
-- **Debug Mode**: The `--debug` flag allows keeping raw bank data JSON for deeper inspection of the original json, if required.
+- **Authentication**: Uses OAuth 2.0. Opens your browser to log in locally.
+- **Minimal Output**: Automatically maps multi-currency accounts and removes irrelevant bank info, keeping only what matters (`Accounts`, `Portfolio`, `Orders`).
+- **Archiving**: Old data files are moved to an `archive` folder.
 
 ## Prerequisites
 - Python 3.x
-- `requests` library (`pip install requests`)
-- A Saxo Bank developer application containing your `AppKey` and `AppSecret` (Saxo OpenAPI credentials).
+- Saxo Developer app (for `AppKey` and `AppSecret`)
 
 ## Setup
-1. Clone this repository.
-2. Provide your Saxo Bank OpenAPI parameters in a local `saxo.info` file. This is done by using the **COPY APP OBJECT** Button in the Saxo developer console for your app (https://www.developer.saxo/openapi/appmanagement#/livedetails) and paste it into the `saxo.info` file. **This file must be kept secret and is already ignored by `.gitignore`.** It must contain valid JSON format:
+1. Clone the repository and install dependencies (`pip install requests`).
+2. Create a `saxo.info` file in the folder. Use the **COPY APP OBJECT** button on the [Saxo Developer Console](https://www.developer.saxo/openapi/appmanagement#/livedetails) and paste it. 
+   *(Note: This file is ignored by `.gitignore` so your keys stay safe)*
    ```json
    {
        "AppKey": "YOUR_CLIENT_ID",
@@ -28,20 +25,49 @@ This is a Python application that fetches your portfolio, account balances, and 
        "RedirectUrls": ["http://localhost"]
    }
    ```
-3. Run the script! 
 
 ## Usage
-**Option 1: Windows Batch File (Recommended)**
-Simply double-click the `Start_Saxo.bat` file. This starts the script in the foreground and leaves the window open until you press a key.
+- **Windows (Recommended):** Double-click `Start_Saxo.bat`.
+- **Terminal:** Run `python saxo_portfolio_fetcher.py`.
+- **Debug Mode:** Run `python saxo_portfolio_fetcher.py --debug` (or `.\Start_Saxo.bat --debug`) to also save the original, uncleaned JSON payload provided by Saxo.
 
-**Option 2: Terminal**
-```bash
-python saxo_portfolio_fetcher.py
+## Example Output
+The tool will create a clean JSON file (e.g. `saxo_portfolio_20260414_084456.json`) that looks similar to this structure:
+```json
+{
+  "Accounts": [
+    {
+      "Currency": "CHF",
+      "CashBalance": 9999.99,
+      "AccountValue": 99999.99,
+      "MarginAvailable": 99999.99
+    },
+    {
+      "Currency": "USD",
+      "CashBalance": 999.99,
+      "AccountValue": 9999.99,
+      "MarginAvailable": 9999.99
+    }
+  ],
+  "Portfolio": [
+    {
+      "Symbol": "AAPL:xnas",
+      "Quantity": 99,
+      "CurrentPrice": 999.99,
+      "TotalValue": 99999.99,
+      "ProfitLoss": 999.99,
+      "ProfitLossPct": 9.99
+    }
+  ],
+  "Orders": [
+    {
+      "OrderId": "99999999",
+      "Symbol": "MSFT:xnas",
+      "BuySell": "Buy",
+      "Amount": 99,
+      "Price": 999.99,
+      "Status": "Working"
+    }
+  ]
+}
 ```
-
-**Debug Mode:**
-To keep a copy of the raw Saxo API payload (before the LLM context optimization), run it with the `--debug` flag:
-```bash
-python saxo_portfolio_fetcher.py --debug
-```
-Or use the batch script like so: `.\Start_Saxo.bat --debug`
