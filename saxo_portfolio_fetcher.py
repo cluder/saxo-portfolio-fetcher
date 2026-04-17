@@ -155,7 +155,10 @@ def get_access_token():
     # Fallback: Fetch a new token
     return get_new_token()
 
-def extract_data(raw_data):
+def extract_data(raw_data, fx_rates=None):
+    if fx_rates is None:
+        fx_rates = {}
+        
     data = {
         "_Documentation": "Note: For cash-based trading decisions, strictly utilize 'CashAvailableForTrading'. 'ProjectedCashAfterOrdersExecuted' reflects your remaining cash assuming all current open buy orders are filled. 'MarginAvailableForTrading' includes the collateral value of held securities; utilizing it involves borrowing broker funds and will incur overnight interest charges.",
         "Accounts": {},
@@ -214,10 +217,13 @@ def extract_data(raw_data):
             amount = ord.get("Amount", 0)
             price = ord.get("Price", 0)
             
+            symbol = fmt.get("Symbol", "")
+            currency = fmt.get("Currency", "")
+            
             data["Orders"].append({
                 "AccountId": acc_id,
                 "Name": fmt.get("Description"),
-                "Symbol": fmt.get("Symbol"),
+                "Symbol": symbol,
                 "Type": ord.get("OpenOrderType"),
                 "DurationType": dur.get("DurationType"),
                 "ExpirationDate": dur.get("ExpirationDateTime") or dur.get("ExpirationDate"),
@@ -228,7 +234,23 @@ def extract_data(raw_data):
             })
             
             if action == "Buy" and acc_id in data["Accounts"]:
-                data["Accounts"][acc_id]["OpenOrdersValue"] += (amount * price)
+                order_value = amount * price
+                
+                # Handle British pence for LSE listed stocks where currency is "GBP"
+                if currency == "GBP" and ":xlon" in symbol.lower():
+                    order_value = order_value / 100.0
+                    
+                account_currency = data["Accounts"][acc_id].get("Currency")
+                converted_value = order_value
+                
+                if currency and account_currency and currency != account_currency and fx_rates:
+                    rate_source = fx_rates.get(currency)
+                    rate_target = fx_rates.get(account_currency)
+                    if rate_source and rate_target:
+                        value_in_usd = order_value / rate_source
+                        converted_value = value_in_usd * rate_target
+                        
+                data["Accounts"][acc_id]["OpenOrdersValue"] += converted_value
                 
     for acc_id, acc_info in data["Accounts"].items():
         if acc_info["CashAvailableForTrading"] is not None:
@@ -248,6 +270,18 @@ def fetch_saxo_data():
     }
 
     data_collection = {}
+
+    print("Fetching exchange rates...")
+    fx_rates = {}
+    try:
+        fx_res = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
+        if fx_res.status_code == 200:
+            fx_rates = fx_res.json().get("rates", {})
+            print("- Exchange rates loaded successfully.")
+        else:
+            print(f"- Error fetching exchange rates: {fx_res.status_code}")
+    except Exception as e:
+        print(f"- Error fetching exchange rates: {e}")
 
     print("Downloading data...")
 
@@ -314,7 +348,7 @@ def fetch_saxo_data():
             json.dump(data_collection, f, indent=4)
         
     # Save extracted data
-    data = extract_data(data_collection)
+    data = extract_data(data_collection, fx_rates)
     filename = f"saxo_portfolio_{timestamp}.json"
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
