@@ -5,8 +5,10 @@ saxo_token.json
 # Downloaded Portfolio Data
 saxo_portfolio_*.json
 my_saxo_data_raw_*.json
+*.example.json
 archive/
 historic/
+
 
 # Cache
 __pycache__/

@@ -194,18 +194,29 @@ def extract_data(raw_data, fx_rates=None):
             base = pos.get("PositionBase", {})
             view = pos.get("PositionView", {})
             
-            data["Portfolio"].append({
+            pos_item = {
                 "AccountId": base.get("AccountId"),
                 "Name": fmt.get("Description"),
                 "Symbol": fmt.get("Symbol"),
+                "Uic": base.get("Uic"),
                 "AssetType": base.get("AssetType"),
                 "Amount": base.get("Amount"),
                 "PurchasePrice": base.get("OpenPrice"),
+                "PurchasePriceIncludingCosts": base.get("OpenPriceIncludingCosts"),
                 "CurrentPrice": view.get("CurrentPrice"),
                 "MarketValue": view.get("MarketValue"),
+                "Exposure": view.get("Exposure"),
                 "ProfitLoss": view.get("ProfitLossOnTrade"),
-                "Currency": fmt.get("Currency")
-            })
+                "DailyPricePercentChange": view.get("InstrumentPriceDayPercentChange"),
+                "Currency": fmt.get("Currency"),
+                "ExecutionTimeOpen": base.get("ExecutionTimeOpen")
+            }
+            if "OptionsData" in base:
+                pos_item["OptionsData"] = base["OptionsData"]
+                underlying_price = view.get("UnderlyingCurrentPrice")
+                if underlying_price is not None:
+                    pos_item["UnderlyingCurrentPrice"] = underlying_price
+            data["Portfolio"].append(pos_item)
             
     if "orders" in raw_data and "Data" in raw_data["orders"]:
         for ord in raw_data["orders"]["Data"]:
@@ -220,18 +231,26 @@ def extract_data(raw_data, fx_rates=None):
             symbol = fmt.get("Symbol", "")
             currency = fmt.get("Currency", "")
             
-            data["Orders"].append({
+            order_item = {
                 "AccountId": acc_id,
                 "Name": fmt.get("Description"),
                 "Symbol": symbol,
+                "Uic": ord.get("Uic"),
                 "Type": ord.get("OpenOrderType"),
                 "DurationType": dur.get("DurationType"),
                 "ExpirationDate": dur.get("ExpirationDateTime") or dur.get("ExpirationDate"),
                 "Action": action,
                 "Amount": amount,
                 "TargetPrice": price,
-                "DistanceToMarket": ord.get("DistanceToMarket")
-            })
+                "MarketPrice": ord.get("MarketPrice") or ord.get("CurrentPrice"),
+                "DistanceToMarket": ord.get("DistanceToMarket"),
+                "Currency": currency,
+                "OrderTime": ord.get("OrderTime"),
+                "Status": ord.get("Status")
+            }
+            if "OptionsData" in ord:
+                order_item["OptionsData"] = ord["OptionsData"]
+            data["Orders"].append(order_item)
             
             if action == "Buy" and acc_id in data["Accounts"]:
                 order_value = amount * price
@@ -331,12 +350,18 @@ def fetch_saxo_data():
         os.makedirs(archive_dir)
         
     for f in glob.glob("*portfolio*.json"):
+        if "example" in f.lower():
+            continue
         shutil.move(f, os.path.join(archive_dir, f))
     if "--debug" in sys.argv:
         for f in glob.glob("*raw*.json"):
+            if "example" in f.lower():
+                continue
             shutil.move(f, os.path.join(archive_dir, f))
     else:
         for f in glob.glob("*raw*.json"):
+            if "example" in f.lower():
+                continue
             os.remove(f)
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
